@@ -37,6 +37,7 @@ in
 {
 
   config = rec {
+
     environment.etc."host.conf".text = ''
       order hosts, bind
       multi on
@@ -58,6 +59,14 @@ in
         if (hasAttr location cfg.static.nameservers)
         then cfg.static.nameservers.${location}
         else [];
+
+
+      vlans = listToAttrs (map (interface:
+        lib.nameValuePair interface.taggedDevice {
+          id = interface.vlanId;
+          interface = interface.physicalDevice;
+        })
+        (filter (interface: interface.policy == "tagged") interfaces));
 
       # data structure for all configured interfaces with their IP addresses:
       # { ethfe = { ... }; ethsrv = { }; ... }
@@ -163,10 +172,14 @@ in
 
     };
 
-    services.udev.extraRules = lib.concatMapStrings
+    services.udev.extraRules = lib.concatStrings (lib.unique
+      # Due to the way we report interface config we may und up with repeated
+      # rules for physical interfaces (e.g. with with two tagged interfaces
+      # on the same underlying device).
+      (map
       (interface: ''
         SUBSYSTEM=="net" , ATTR{address}=="${interface.mac}", NAME="${interface.physicalDevice}"
-        '') interfaces;
+        '') interfaces));
 
     systemd.services =
       let startStopScript = fclib.simpleRouting;

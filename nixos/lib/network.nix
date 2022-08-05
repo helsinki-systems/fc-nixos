@@ -5,6 +5,10 @@
 with builtins;
 let
   fclib = config.fclib;
+
+  toInterfaceName = name:
+    assert lib.assertMsg ((match "[a-z0-9\\-]{1,12}" name) != null) "External label ${name} uses invalid characters or is longer than 12 characters.";
+    name;
 in
 rec {
   stripNetmask = cidr: head (lib.splitString "/" cidr);
@@ -180,10 +184,26 @@ rec {
 
         vlanId = config.flyingcircus.static.vlanIds.${vlan};
 
-        device = if bridged then bridgedDevice else physicalDevice;
-        attachedDevices = if bridged then [physicalDevice] else [];
+
+        # The device layering is as follows:
+
+        # physicalDevice (-> taggedDevice) (-> bridgedDevice)
+        #
+        #
+        # Examples:
+        #
+        # Untagged, unbridged: ethsrv
+        # Untagged, bridged: ethsrv -> brsrv
+        # Tagged, unbridged: ethextleft -> ethsrv
+        # Tagged, bridged: ethextleft -> ethsrv -> brsrv
+
+        device = if bridged then bridgedDevice else taggedDevice;
+        attachedDevices = if bridged then [taggedDevice] else [];
         bridgedDevice = "br${vlan}";
-        physicalDevice = "eth${vlan}";
+        taggedDevice = "eth${vlan}";
+        physicalDevice = if (policy == "tagged")
+          then "eth${toInterfaceName interface.external_label}"
+          else taggedDevice;
 
         macFallback = "02:00:00:${fclib.byteToHex vlanId}:??:??";
         mac = lib.toLower
