@@ -112,7 +112,8 @@ class MaintenanceTasks(object):
     def load_vm_images(self):
         fc.ceph.images.load_vm_images()
 
-    def purge_old_snapshots(self):
+    def purge_old_snapshots(self) -> int:
+        status_code = 0
         pools = Pools(Cluster())
         for pool in pools:
             for image in pool.images:
@@ -120,7 +121,18 @@ class MaintenanceTasks(object):
                     print(
                         "removing snapshot {}/{}".format(pool.name, image.name)
                     )
-                    pool.snap_rm(image)
+                    try:
+                        pool.snap_rm(image)
+                    except CephCmdError:
+                        print(
+                            "The following error occured at snapshot deletion:",
+                            file=sys.stderr,
+                        )
+                        traceback.print_exc()
+                        status_code = 13
+                        print("Continuing...", file=sys.stderr)
+
+        return status_code
 
     def clean_deleted_vms(self):
         ceph = Cluster()
