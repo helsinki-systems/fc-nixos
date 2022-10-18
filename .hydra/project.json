@@ -32,7 +32,7 @@
         },
         "pull_requests": {
             "type": "githubpulls",
-            "value": "flyingcircusio fc-nixos",
+            "value": "helsinki-systems fc-nixos",
             "emailresponsible": false
         }
     }
