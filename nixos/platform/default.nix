@@ -236,7 +236,6 @@ in {
       extraOptions = ''
         fallback = true
         http-connections = 2
-        extra-experimental-features = nix-command flakes
       '';
     };
 
